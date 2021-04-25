@@ -3,13 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
+	"path/filepath"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
-	"log"
-	"path/filepath"
 	"sigs.k8s.io/cli-utils/pkg/kstatus/status"
 )
 
