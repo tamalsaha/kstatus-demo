@@ -21,7 +21,7 @@ import (
 	"time"
 )
 
-func main() {
+func main_core() {
 	masterURL := ""
 	kubeconfigPath := filepath.Join(homedir.HomeDir(), ".kube", "config")
 
@@ -67,6 +67,67 @@ func main() {
 			GroupKind: schema.GroupKind{
 				Group: "",
 				Kind:  "Pod",
+			},
+		},
+	}
+
+	fmt.Println("----")
+
+	ch := poller.Poll(context.TODO(), ids, polling.Options{
+		PollInterval: 2 * time.Second,
+		UseCache:     false,
+	})
+	for e := range ch {
+		fmt.Printf("%s, err: %v, rs:%+v\n", e.EventType, e.Error, *e.Resource)
+	}
+}
+
+func main() {
+	masterURL := ""
+	kubeconfigPath := filepath.Join(homedir.HomeDir(), ".kube", "config")
+
+	config, err := clientcmd.BuildConfigFromFlags(masterURL, kubeconfigPath)
+	if err != nil {
+		log.Fatalf("Could not get Kubernetes config: %s", err)
+	}
+
+	dc := dynamic.NewForConfigOrDie(config)
+	nodes, err := dc.Resource(schema.GroupVersionResource{
+		Group:    "kubedb.com",
+		Version:  "v1alpha2",
+		Resource: "postgreses",
+	}).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		panic(err)
+	}
+
+	for _, obj := range nodes.Items {
+		s, err := status.Compute(&obj)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("%+v\n", *s)
+	}
+
+	disco := discovery.NewDiscoveryClientForConfigOrDie(config)
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(disco))
+
+	reader, err := client.New(config, client.Options{
+		Scheme: clientscheme.Scheme,
+		Mapper: mapper,
+	})
+	if err != nil {
+		panic(err)
+	}
+	poller := polling.NewStatusPoller(reader, mapper)
+
+	ids := []object.ObjMetadata{
+		{
+			Namespace: "default",
+			Name:      "demo-pgsqueeze",
+			GroupKind: schema.GroupKind{
+				Group: "kubedb.com",
+				Kind:  "Postgres",
 			},
 		},
 	}
